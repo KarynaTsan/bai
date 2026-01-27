@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="pl" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"><title>Edit note</title></head>
+<body>
+<h2>Edit note</h2>
+
+<form method="post"
+      th:action="@{'/user/notes/' + ${noteId}}"
+      th:object="${form}">
+
+    <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+
+    <div>
+        <label>Title</label>
+        <input type="text" th:field="*{title}"/>
+        <div th:if="${#fields.hasErrors('title')}" th:errors="*{title}"></div>
+    </div>
+
+    <div>
+        <label>Content</label>
+        <textarea th:field="*{content}"></textarea>
+        <div th:if="${#fields.hasErrors('content')}" th:errors="*{content}"></div>
+    </div>
+
+    <button type="submit">Update</button>
+</form>
+
+<p><a href="/user/notes">Back</a> |
+    <a href="/user/hello">Back to home</a>
+</p>
+</body>
+</html>

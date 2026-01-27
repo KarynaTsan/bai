@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="pl" xmlns:th="http://www.thymeleaf.org">
+<head><meta charset="UTF-8"><title>Notes</title></head>
+<body>
+<h2>My notes</h2>
+
+<p>
+    <a href="/user/notes/new">+ New note</a> |
+    <a href="/user/hello">Home</a> |
+<form th:action="@{/logout}" method="post" style="display:inline;">
+    <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+    <button type="submit" style="background:none;border:none;padding:0;color:blue;cursor:pointer;">
+        Logout
+    </button>
+</form>
+</p>
+
+<div th:if="${msg}" style="padding:10px; background:#e7f7e7; border:1px solid #b6e2b6; margin-bottom:12px;">
+    <span th:text="${msg}"></span>
+</div>
+<div th:if="${#lists.isEmpty(notes)}">
+    <p>No notes yet.</p>
+</div>
+
+<ul th:if="${!#lists.isEmpty(notes)}">
+    <li th:each="n : ${notes}">
+        <b th:text="${n.title}"></b>
+        <a th:href="@{'/user/notes/' + ${n.id} + '/edit'}">Edit</a>
+
+        <form th:action="@{'/user/notes/' + ${n.id} + '/delete'}"
+              method="post"
+              style="display:inline;">
+            <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+            <button type="submit">Delete</button>
+        </form>
+    </li>
+</ul>
+</body>
+</html>
