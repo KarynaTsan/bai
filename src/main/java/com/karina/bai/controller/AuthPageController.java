@@ -26,9 +26,20 @@ public class AuthPageController {
     public String register(
             @RequestParam String username,
             @RequestParam String email,
-            @RequestParam String password
+            @RequestParam String password,
+            org.springframework.ui.Model model
     ) {
-        userService.createUser(username, email, password);
-        return "redirect:/login";
+        try {
+            userService.createUser(username, email, password);
+            return "redirect:/login";
+        } catch (IllegalArgumentException ex) {
+            // pokazuje błąd hjasła na stronie
+            model.addAttribute("error", ex.getMessage());
+
+            model.addAttribute("username", username);
+            model.addAttribute("email", email);
+
+            return "register";
+        }
     }
 }
