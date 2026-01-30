@@ -9,22 +9,21 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Bean;
 import org.slf4j.LoggerFactory;
 import org.slf4j.Logger;
-import com.karina.bai.security.RateLimitFilter;
-
+import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter;
 
 @Configuration
 public class SecurityConfig {
     private static final Logger log = LoggerFactory.getLogger(SecurityConfig.class);
 
+
     @Bean
     SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         return http
 
-                .addFilterBefore(new RateLimitFilter(),
-                        UsernamePasswordAuthenticationFilter.class
-                )
+                .addFilterBefore(rateLimitFilter(), UsernamePasswordAuthenticationFilter.class)
 
-                .csrf(csrf -> {}) //ochrona CSRF
+                .csrf(csrf -> {
+                }) //ochrona CSRF
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/login", "/register").permitAll()
                         .requestMatchers("/css/**", "/js/**", "/images/**").permitAll() //на всякий пожарный
@@ -53,6 +52,7 @@ public class SecurityConfig {
                         })
                         .permitAll()
                 )
+
                 .logout(logout -> logout
                         .logoutUrl("/logout")
                         .logoutSuccessUrl("/login?logout")
@@ -61,16 +61,15 @@ public class SecurityConfig {
                         .deleteCookies("JSESSIONID")
                         .permitAll()
                 )
-                .headers(headers -> headers
-                        .cacheControl(cache -> {})
-                )
+                // session hardening
                 .sessionManagement(sm -> sm
                         .sessionFixation(sf -> sf.migrateSession())
-                        .maximumSessions(1)
-                        .maxSessionsPreventsLogin(false)
                 )
+
+                //Referrer-Policy
                 .headers(headers -> headers
-                        .contentTypeOptions(cto -> {}) // X-Content-Type-Options: nosniff
+                        .contentTypeOptions(cto -> {
+                        }) // X-Content-Type-Options: nosniff
                         .frameOptions(fo -> fo.deny()) // X-Frame-Options: DENY
                         .referrerPolicy(rp -> rp.policy(
                                 org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter.ReferrerPolicy.NO_REFERRER
@@ -84,12 +83,33 @@ public class SecurityConfig {
                                         "base-uri 'self'; " +
                                         "frame-ancestors 'none'"
                         ))
+                        .cacheControl(cache -> {
+                        })   // Cache-Control
+                )
+                .exceptionHandling(ex -> ex
+                        .accessDeniedHandler((request, response, accessDeniedException) -> {
+                            log.warn("403 Forbidden: path={}, user={}",
+                                    request.getRequestURI(),
+                                    request.getUserPrincipal() != null ? request.getUserPrincipal().getName() : "anonymous");
+                            response.sendRedirect("/access-denied"); // или просто response.sendError(403)
+                        })
+                        .authenticationEntryPoint((request, response, authException) -> {
+                            log.warn("401 Unauthorized: path={}, ip={}", request.getRequestURI(), request.getRemoteAddr());
+                            response.sendRedirect("/login");
+                        })
                 )
 
                 .build();
     }
+
+    @Bean
+    public RateLimitFilter rateLimitFilter() {
+        return new RateLimitFilter();
+    }
+
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
+
 }

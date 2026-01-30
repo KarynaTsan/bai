@@ -15,6 +15,9 @@
         <label>Password:</label>
         <input type="password" name="password" />
     </div>
+    <div th:if="${param.error}" style="color:red; margin-bottom:10px;">
+        Nieprawidłowy login lub hasło
+    </div>
 
     <button type="submit">Zaloguj</button>
 </form>
