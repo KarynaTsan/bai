@@ -57,7 +57,7 @@ class SecurityIntegrationTest {
     void unauthenticatedUserIsRedirectedToLogin() throws Exception {
         mockMvc.perform(get("/user/hello"))
                 .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrl("http://localhost/login"));
+                .andExpect(redirectedUrl("/login"));
     }
 
     @Test
