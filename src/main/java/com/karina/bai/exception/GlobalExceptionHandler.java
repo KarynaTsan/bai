@@ -26,15 +26,15 @@ public class GlobalExceptionHandler {
             return mv;
         }
 
-        //Domyślnie: bezpieczna strona błędu
-        ModelAndView mv = new ModelAndView("error");
+        // Domyślnie: bezpieczna strona błędu
+        ModelAndView mv = new ModelAndView("error/500");
         mv.addObject("error", ex.getMessage());
         return mv;
     }
 
     @ExceptionHandler(SecurityException.class)
     public ModelAndView handleSecurity(SecurityException ex) {
-        ModelAndView mv = new ModelAndView("403");
+        ModelAndView mv = new ModelAndView("error/403");
         mv.addObject("error", "Brak dostępu.");
         return mv;
     }
