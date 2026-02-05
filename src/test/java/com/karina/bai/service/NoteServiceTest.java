@@ -4,9 +4,10 @@ import com.karina.bai.model.Note;
 import com.karina.bai.model.User;
 import com.karina.bai.repository.NoteRepository;
 import com.karina.bai.repository.UserRepository;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -27,41 +28,48 @@ class NoteServiceTest {
     @Mock
     private UserRepository userRepository;
 
-    @InjectMocks
     private NoteService noteService;
+    @BeforeEach
+    void setUp() {
+        noteService = new NoteService(noteRepository, userRepository);
+    }
 
     @Test
-    void myNotesReturnsNotesForCurrentUser() {
+    void myNotesUsesCurrentUserId() {
         User user = new User("user", "user@example.com", "hashed");
-        user.setId(42L);
+        user.setId(11L);
         when(userRepository.findByEmail("user@example.com")).thenReturn(Optional.of(user));
-        when(noteRepository.findAllByUserIdOrderByCreatedAtDesc(42L)).thenReturn(List.of());
+        when(noteRepository.findAllByUserIdOrderByCreatedAtDesc(11L)).thenReturn(List.of());
 
-        List<Note> notes = noteService.myNotes("user@example.com");
+        List<Note> result = noteService.myNotes("user@example.com");
 
-        assertThat(notes).isEmpty();
+        assertThat(result).isEmpty();
         verify(noteRepository).findAllByUserIdOrderByCreatedAtDesc(42L);
     }
 
     @Test
-    void createStoresNoteWithUserId() {
+    void createPersistsNoteForCurrentUser() {
         User user = new User("user", "user@example.com", "hashed");
         user.setId(7L);
         when(userRepository.findByEmail("user@example.com")).thenReturn(Optional.of(user));
         when(noteRepository.save(any(Note.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        Note note = noteService.create("user@example.com", "Title", "Content");
+        Note saved = noteService.create("user@example.com", "Title", "Content");
 
-        assertThat(note.getUserId()).isEqualTo(7L);
-        assertThat(note.getTitle()).isEqualTo("Title");
+        ArgumentCaptor<Note> captor = ArgumentCaptor.forClass(Note.class);
+        verify(noteRepository).save(captor.capture());
+        Note captured = captor.getValue();
+        assertThat(captured.getUserId()).isEqualTo(7L);
+        assertThat(captured.getTitle()).isEqualTo("Title");
+        assertThat(saved.getContent()).isEqualTo("Content");
     }
 
     @Test
-    void getMineOrThrowRejectsUnauthorizedAccess() {
+    void getMineOrThrowRejectsOtherUsers() {
         User user = new User("user", "user@example.com", "hashed");
-        user.setId(7L);
+        user.setId(5L);
         when(userRepository.findByEmail("user@example.com")).thenReturn(Optional.of(user));
-        when(noteRepository.findByIdAndUserId(99L, 7L)).thenReturn(Optional.empty());
+        when(noteRepository.findByIdAndUserId(99L, 5L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> noteService.getMineOrThrow("user@example.com", 99L))
                 .isInstanceOf(SecurityException.class)
@@ -69,28 +77,40 @@ class NoteServiceTest {
     }
 
     @Test
-    void updateChangesNoteAndSaves() {
+    void updateChangesFieldsAndSaves() {
         User user = new User("user", "user@example.com", "hashed");
-        user.setId(7L);
-        Note note = new Note(7L, "Old", "Old content");
+        user.setId(3L);
+        Note note = new Note(3L, "Old", "Old content");
         when(userRepository.findByEmail("user@example.com")).thenReturn(Optional.of(user));
-        when(noteRepository.findByIdAndUserId(5L, 7L)).thenReturn(Optional.of(note));
+        when(noteRepository.findByIdAndUserId(9L, 3L)).thenReturn(Optional.of(note));
 
-        noteService.update("user@example.com", 5L, "New", "New content");
+        noteService.update("user@example.com", 9L, "New", "New content");
 
-        assertThat(note.getTitle()).isEqualTo("New");
-        assertThat(note.getContent()).isEqualTo("New content");
-        verify(noteRepository).save(note);
+        ArgumentCaptor<Note> captor = ArgumentCaptor.forClass(Note.class);
+        verify(noteRepository).save(captor.capture());
+        Note saved = captor.getValue();
+        assertThat(saved.getTitle()).isEqualTo("New");
+        assertThat(saved.getContent()).isEqualTo("New content");
     }
 
     @Test
-    void deleteUsesUserScopedRepositoryMethod() {
+    void deleteUsesUserScopedRepository() {
         User user = new User("user", "user@example.com", "hashed");
-        user.setId(7L);
+        user.setId(12L);
         when(userRepository.findByEmail("user@example.com")).thenReturn(Optional.of(user));
 
-        noteService.delete("user@example.com", 12L);
+        noteService.delete("user@example.com", 45L);
 
-        verify(noteRepository).deleteByIdAndUserId(12L, 7L);
+        verify(noteRepository).deleteByIdAndUserId(45L, 12L);
+    }
+
+    @Test
+    void currentUserIdFailsWhenUserMissing() {
+        when(userRepository.findByEmail("missing@example.com")).thenReturn(Optional.empty());
+
+
+        assertThatThrownBy(() -> noteService.myNotes("missing@example.com"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Logged user not found in DB");
     }
 }
