@@ -1,15 +1,16 @@
 package com.karina.bai.config;
 
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Bean;
+import jakarta.servlet.http.HttpServletResponse;
 import org.slf4j.LoggerFactory;
 import org.slf4j.Logger;
-import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter;
 
 @Configuration
 public class SecurityConfig {
@@ -43,12 +44,7 @@ public class SecurityConfig {
                         .successHandler((request, response, authentication) -> {
                             boolean isAdmin = authentication.getAuthorities().stream()
                                     .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
-
-                            if (isAdmin) {
-                                response.sendRedirect("/admin/hello");
-                            } else {
-                                response.sendRedirect("/user/hello");
-                            }
+                            response.sendRedirect(isAdmin ? "/admin/hello" : "/user/hello");
                         })
                         .permitAll()
                 )
@@ -68,11 +64,10 @@ public class SecurityConfig {
 
                 //Referrer-Policy
                 .headers(headers -> headers
-                        .contentTypeOptions(cto -> {
-                        }) // X-Content-Type-Options: nosniff
+                        .contentTypeOptions(cto -> {}) // X-Content-Type-Options: nosniff
                         .frameOptions(fo -> fo.deny()) // X-Frame-Options: DENY
                         .referrerPolicy(rp -> rp.policy(
-                                org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter.ReferrerPolicy.NO_REFERRER
+                                ReferrerPolicyHeaderWriter.ReferrerPolicy.NO_REFERRER
                         ))
                         .contentSecurityPolicy(csp -> csp.policyDirectives(
                                 "default-src 'self'; " +
@@ -87,13 +82,14 @@ public class SecurityConfig {
                         })   // Cache-Control
                 )
                 .exceptionHandling(ex -> ex
-                        .accessDeniedHandler((request, response, accessDeniedException) -> {
-                            log.warn("403 Forbidden: path={}, user={}",
-                                    request.getRequestURI(),
-                                    request.getUserPrincipal() != null ? request.getUserPrincipal().getName() : "anonymous");
-                            response.sendRedirect("/access-denied"); // или просто response.sendError(403)
-                        })
-                        .authenticationEntryPoint((request, response, authException) -> {
+                .accessDeniedHandler((request, response, accessDeniedException) -> {
+                    log.warn("403 Forbidden: path={}, user={}",
+                            request.getRequestURI(),
+                            request.getUserPrincipal() != null ? request.getUserPrincipal().getName() : "anonymous");
+                    response.sendError(HttpServletResponse.SC_FORBIDDEN);
+                })
+
+                .authenticationEntryPoint((request, response, authException) -> {
                             log.warn("401 Unauthorized: path={}, ip={}", request.getRequestURI(), request.getRemoteAddr());
                             response.sendRedirect("/login");
                         })
